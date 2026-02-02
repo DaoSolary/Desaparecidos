@@ -1,0 +1,658 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  fullName    String
+  email       String   @unique
+  password    String
+  phone       String?
+  role        UserRole @default(CIDADAO)
+  province    String?
+  municipality String?
+  verifiedAt  DateTime?
+  isBlocked   Boolean  @default(false)
+  blockedAt   DateTime?
+  blockedBy   String?
+  blockedReason String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  missingPeople       MissingPerson[] @relation("ReporterCases")
+  managedThreads      ChatThread[]    @relation("ModeratorThreads")
+  chatMessages        ChatMessage[]
+  volunteerMissions   VolunteerMission[] @relation("MissionOwners")
+  missionCheckIns     MissionCheckIn[]
+  alertSubscriptions  AlertSubscription[]
+  auditLogs           AuditLog[]
+  passwordResets      PasswordResetToken[]
+  favorites           FavoriteCase[]
+  caseReports         CaseReport[]
+  approvedCases       MissingPerson[] @relation("ApprovedBy")
+  badges              UserBadge[]
+  authorityChats      AuthorityChat[] @relation("ChatUser")
+  authorityChatsAsAuthority AuthorityChat[] @relation("ChatAuthority")
+  authorityChatMessages AuthorityChatMessage[] @relation("AuthorityChatMessages")
+  sightings           Sighting[] @relation("SightingReporter")
+  caseForwardings    CaseForwarding[] @relation("CaseForwardings")
+  createdContent     InstitutionalContent[] @relation("ContentCreator")
+  updatedContent     InstitutionalContent[] @relation("ContentUpdater")
+  updatedConfigs     SystemConfig[] @relation("ConfigUpdater")
+  deletedCases       DeletedCase[] @relation("CaseDeleter")
+  restoredCases      DeletedCase[] @relation("CaseRestorer")
+  startedBackups     Backup[] @relation("BackupStarter")
+  createdAnnouncements GlobalAnnouncement[] @relation("AnnouncementCreator")
+  updatedNotificationConfigs NotificationConfig[] @relation("NotificationConfigUpdater")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model MissingPerson {
+  id                String                @id @default(cuid())
+  fullName          String
+  alias             String?
+  age               Int?
+  gender            Gender?
+  missingDate       DateTime
+  lastSeenLocation  String
+  province          String
+  municipality      String?
+  description       String?
+  circumstances     String?
+  healthConditions  String?
+  priority          PriorityLevel        @default(GERAL)
+  status            CaseStatus           @default(ABERTO)
+  approved          Boolean              @default(false)
+  approvedAt        DateTime?
+  approvedById      String?
+  approvedBy        User?                @relation("ApprovedBy", fields: [approvedById], references: [id])
+  rejectionReason   String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  lastSignalLat     Float?
+  lastSignalLng     Float?
+  lastSignalSource  String?
+  reporterId        String
+  reporter          User                 @relation("ReporterCases", fields: [reporterId], references: [id])
+
+  photos            MissingPersonPhoto[]
+  sightings         Sighting[]
+  chatThreads       ChatThread[]
+  alerts            AlertLog[]
+  historyRecords    CaseHistory[]
+  favorites         FavoriteCase[]
+  reports           CaseReport[]
+  originalDuplicates DuplicateCase[] @relation("OriginalCases")
+  duplicateCases    DuplicateCase[] @relation("DuplicateCases")
+  forwardings       CaseForwarding[]
+  deletedAt         DateTime?
+  deletedBy         String?
+  isDeleted         Boolean  @default(false)
+}
+
+model MissingPersonPhoto {
+  id              String        @id @default(cuid())
+  url             String
+  storageProvider String        @default("local")
+  missingPersonId String
+  missingPerson   MissingPerson @relation(fields: [missingPersonId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  analyses        ImageAnalysis[]
+}
+
+model Sighting {
+  id              String        @id @default(cuid())
+  missingPersonId String
+  missingPerson   MissingPerson @relation(fields: [missingPersonId], references: [id], onDelete: Cascade)
+  reporterId      String?
+  reporter        User?         @relation("SightingReporter", fields: [reporterId], references: [id])
+  reporterName    String
+  reporterContact String?
+  description     String?
+  province        String?
+  municipality    String?
+  location        String?
+  latitude        Float?
+  longitude       Float?
+  status          SightingStatus @default(PENDENTE)
+  evidenceUrl     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model AlertSubscription {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  province     String?
+  municipality String?
+  radiusKm     Int?     @default(25)
+  filters      Json?
+  type         AlertType @default(APLICATIVO)
+  deviceToken  String?
+  lastNotified DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model ChatThread {
+  id              String             @id @default(cuid())
+  missingPersonId String
+  missingPerson   MissingPerson      @relation(fields: [missingPersonId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User               @relation("ModeratorThreads", fields: [createdById], references: [id])
+  type            ChatType           @default(FAMILIARES)
+  visibility      ThreadVisibility   @default(PRIVADO)
+  createdAt       DateTime           @default(now())
+  messages        ChatMessage[]
+}
+
+model ChatMessage {
+  id          String    @id @default(cuid())
+  threadId    String
+  thread      ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User       @relation(fields: [senderId], references: [id])
+  content     String
+  isAnonymous Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+model VolunteerMission {
+  id             String            @id @default(cuid())
+  title          String
+  description    String?
+  province       String
+  municipality   String?
+  status         MissionStatus     @default(PLANEJADA)
+  priority       PriorityLevel     @default(GERAL)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  ownerId        String
+  owner          User              @relation("MissionOwners", fields: [ownerId], references: [id])
+  checkpoints    Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  checkIns       MissionCheckIn[]
+}
+
+model MissionCheckIn {
+  id          String           @id @default(cuid())
+  missionId   String
+  mission     VolunteerMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  volunteerId String
+  volunteer   User             @relation(fields: [volunteerId], references: [id])
+  latitude    Float
+  longitude   Float
+  notes       String?
+  createdAt   DateTime         @default(now())
+}
+
+model AlertLog {
+  id              String        @id @default(cuid())
+  missingPersonId String
+  missingPerson   MissingPerson @relation(fields: [missingPersonId], references: [id], onDelete: Cascade)
+  type            AlertType
+  payload         Json
+  deliveredAt     DateTime?
+  createdAt       DateTime     @default(now())
+}
+
+model CaseHistory {
+  id              String        @id @default(cuid())
+  missingPersonId String
+  missingPerson   MissingPerson @relation(fields: [missingPersonId], references: [id], onDelete: Cascade)
+  status          CaseStatus
+  notes           String?
+  createdById     String?
+  createdAt       DateTime      @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  entityType  String?  // Tipo de entidade afetada (USER, CASE, SIGHTING, etc.)
+  entityId    String?  // ID da entidade afetada
+  details     String?  // Descrição legível da ação
+  metadata    Json?    // Dados adicionais estruturados
+  ipAddress   String?  // IP do usuário para rastreabilidade
+  userAgent   String?  // User agent do navegador
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+enum UserRole {
+  CIDADAO
+  FAMILIAR
+  VOLUNTARIO
+  MODERADOR
+  AUTORIDADE
+  ADMIN
+}
+
+enum Gender {
+  MASCULINO
+  FEMININO
+  OUTRO
+}
+
+enum PriorityLevel {
+  GERAL
+  CRIANCA
+  IDOSO
+  DEFICIENCIA
+  URGENTE
+}
+
+enum CaseStatus {
+  ABERTO
+  EM_INVESTIGACAO
+  AVISTADO
+  ENCONTRADO
+  ENCERRADO
+}
+
+enum SightingStatus {
+  PENDENTE
+  VALIDADO
+  DESCARTADO
+}
+
+enum AlertType {
+  PUSH
+  EMAIL
+  SMS
+  APLICATIVO
+}
+
+enum ChatType {
+  FAMILIARES
+  ANONIMO
+  AUTORIDADES
+}
+
+enum ThreadVisibility {
+  PUBLICO
+  PRIVADO
+}
+
+enum MissionStatus {
+  PLANEJADA
+  ATIVA
+  PAUSADA
+  CONCLUIDA
+}
+
+model FavoriteCase {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  missingPersonId String
+  missingPerson   MissingPerson @relation(fields: [missingPersonId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([userId, missingPersonId])
+}
+
+model CaseReport {
+  id              String        @id @default(cuid())
+  missingPersonId String
+  missingPerson   MissingPerson @relation(fields: [missingPersonId], references: [id], onDelete: Cascade)
+  reporterId      String
+  reporter        User          @relation(fields: [reporterId], references: [id])
+  reason          String
+  description     String?
+  status          ReportStatus  @default(PENDENTE)
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum ReportStatus {
+  PENDENTE
+  EM_ANALISE
+  ACEITE
+  REJEITADO
+}
+
+model UserBadge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeType  BadgeType
+  earnedAt   DateTime @default(now())
+  description String?
+
+  @@unique([userId, badgeType])
+}
+
+enum BadgeType {
+  FIRST_CASE
+  ACTIVE_CONTRIBUTOR
+  HELPER
+  VERIFIED
+  TOP_REPORTER
+  COMMUNITY_HERO
+}
+
+model AuthorityChat {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("ChatUser", fields: [userId], references: [id], onDelete: Cascade)
+  authorityId String
+  authority   User     @relation("ChatAuthority", fields: [authorityId], references: [id], onDelete: Cascade)
+  subject     String
+  status      ChatStatus @default(ABERTO)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  messages    AuthorityChatMessage[]
+  
+  @@index([userId])
+  @@index([authorityId])
+}
+
+model AuthorityChatMessage {
+  id          String        @id @default(cuid())
+  chatId      String
+  chat        AuthorityChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User          @relation("AuthorityChatMessages", fields: [senderId], references: [id])
+  content     String
+  isRead      Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  
+  @@index([chatId])
+}
+
+enum ChatStatus {
+  ABERTO
+  EM_ATENDIMENTO
+  RESOLVIDO
+  FECHADO
+}
+
+// Casos Duplicados
+model DuplicateCase {
+  id                String   @id @default(cuid())
+  originalCaseId    String
+  originalCase      MissingPerson @relation("OriginalCases", fields: [originalCaseId], references: [id], onDelete: Cascade)
+  duplicateCaseId   String
+  duplicateCase     MissingPerson @relation("DuplicateCases", fields: [duplicateCaseId], references: [id], onDelete: Cascade)
+  similarityScore   Float    // 0-1, onde 1 é idêntico
+  detectedBy         String?  // ID do admin/moderador que detectou
+  detectedAt         DateTime @default(now())
+  status            DuplicateStatus @default(PENDENTE)
+  resolvedBy        String?
+  resolvedAt        DateTime?
+  resolutionNotes   String?
+  
+  @@unique([originalCaseId, duplicateCaseId])
+  @@index([originalCaseId])
+  @@index([duplicateCaseId])
+  @@index([status])
+}
+
+enum DuplicateStatus {
+  PENDENTE
+  CONFIRMADO
+  REJEITADO
+  RESOLVIDO
+}
+
+// Parceiros Externos (Polícia, Proteção Civil, etc.)
+model ExternalPartner {
+  id          String   @id @default(cuid())
+  name        String
+  type        PartnerType
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  forwardings CaseForwarding[]
+  
+  @@index([type])
+  @@index([isActive])
+}
+
+enum PartnerType {
+  POLICIA
+  PROTECAO_CIVIL
+  ORGAO_PARCEIRO
+  OUTRO
+}
+
+// Envio de Casos para Parceiros
+model CaseForwarding {
+  id              String   @id @default(cuid())
+  missingPersonId String
+  missingPerson   MissingPerson @relation(fields: [missingPersonId], references: [id], onDelete: Cascade)
+  partnerId       String
+  partner         ExternalPartner @relation(fields: [partnerId], references: [id])
+  forwardedBy     String
+  forwardedByUser User     @relation("CaseForwardings", fields: [forwardedBy], references: [id])
+  notes           String?
+  status          ForwardingStatus @default(ENVIADO)
+  response        String?
+  respondedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([missingPersonId])
+  @@index([partnerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum ForwardingStatus {
+  ENVIADO
+  RECEBIDO
+  EM_ANALISE
+  ACEITE
+  REJEITADO
+}
+
+// Análise de Imagens (Detecção de Manipulação)
+model ImageAnalysis {
+  id              String   @id @default(cuid())
+  photoId         String
+  photo           MissingPersonPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  analysisType    AnalysisType
+  result          Json     // Resultado da análise (metadados, detecção de manipulação, etc.)
+  confidence      Float?   // 0-1, confiança na análise
+  isManipulated   Boolean  @default(false)
+  manipulationDetails String?
+  analyzedBy      String?  // Sistema automático ou ID do admin
+  analyzedAt      DateTime @default(now())
+  
+  @@index([photoId])
+  @@index([isManipulated])
+  @@index([analyzedAt])
+}
+
+enum AnalysisType {
+  METADATA
+  MANIPULATION_DETECTION
+  QUALITY_CHECK
+  FULL_ANALYSIS
+}
+
+// Conteúdo Institucional (FAQs, Instruções, Contactos)
+model InstitutionalContent {
+  id          String   @id @default(cuid())
+  type        ContentType
+  title       String
+  content     String   @db.Text
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdByUser User   @relation("ContentCreator", fields: [createdBy], references: [id])
+  updatedBy   String?
+  updatedByUser User?  @relation("ContentUpdater", fields: [updatedBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([type])
+  @@index([isActive])
+  @@index([order])
+}
+
+enum ContentType {
+  FAQ
+  INSTRUCOES
+  CONTACTO_EMERGENCIA
+  SOBRE_NOS
+  TERMOS_USO
+  POLITICA_PRIVACIDADE
+  OUTRO
+}
+
+// Configurações do Sistema
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  category    ConfigCategory @default(GENERAL)
+  updatedBy   String?
+  updatedByUser User?  @relation("ConfigUpdater", fields: [updatedBy], references: [id])
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+}
+
+enum ConfigCategory {
+  GENERAL
+  LIMITES_USO
+  BACKUP
+  SEGURANCA
+  NOTIFICACOES
+}
+
+// Casos Deletados (Soft Delete)
+model DeletedCase {
+  id              String   @id @default(cuid())
+  caseId          String   @unique
+  caseData        Json     // Dados completos do caso antes de ser deletado
+  deletedBy       String
+  deletedByUser   User     @relation("CaseDeleter", fields: [deletedBy], references: [id])
+  deletionReason String?
+  deletedAt       DateTime @default(now())
+  restoredAt      DateTime?
+  restoredBy      String?
+  restoredByUser  User?    @relation("CaseRestorer", fields: [restoredBy], references: [id])
+  
+  @@index([deletedBy])
+  @@index([deletedAt])
+  @@index([restoredAt])
+}
+
+// Backups
+model Backup {
+  id          String   @id @default(cuid())
+  type        BackupType
+  status      BackupStatus @default(PENDING)
+  filePath    String?
+  fileSize    Int?     // Tamanho em bytes
+  startedBy   String?
+  startedByUser User?  @relation("BackupStarter", fields: [startedBy], references: [id])
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  error       String?
+  metadata    Json?
+  
+  @@index([type])
+  @@index([status])
+  @@index([startedAt])
+}
+
+enum BackupType {
+  FULL
+  DATABASE_ONLY
+  FILES_ONLY
+  INCREMENTAL
+}
+
+enum BackupStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// Comunicados Globais
+model GlobalAnnouncement {
+  id          String   @id @default(cuid())
+  type        AnnouncementType
+  title       String
+  content     String   @db.Text
+  priority    AnnouncementPriority @default(NORMAL)
+  isActive    Boolean  @default(true)
+  targetRoles Json?   // Array de roles que devem receber (null = todos)
+  expiresAt   DateTime?
+  createdBy   String
+  createdByUser User   @relation("AnnouncementCreator", fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([type])
+  @@index([isActive])
+  @@index([priority])
+  @@index([expiresAt])
+}
+
+enum AnnouncementType {
+  NOTICIA
+  ALERTA_URGENTE
+  INSTRUCAO
+  MANUTENCAO
+  OUTRO
+}
+
+enum AnnouncementPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// Configurações de Notificações Automáticas
+model NotificationConfig {
+  id          String   @id @default(cuid())
+  eventType   String   @unique // Ex: 'new_case', 'case_approved', 'new_sighting'
+  enabled     Boolean  @default(true)
+  template    String?  @db.Text // Template da mensagem
+  targetRoles Json?    // Roles que devem receber esta notificação
+  updatedBy   String?
+  updatedByUser User?  @relation("NotificationConfigUpdater", fields: [updatedBy], references: [id])
+  updatedAt   DateTime @updatedAt
+  
+  @@index([eventType])
+  @@index([enabled])
+}
+
+

@@ -1,0 +1,20 @@
+# Node
+node_modules
+npm-debug.log
+
+# Env
+.env
+.env.*
+
+# Build
+dist
+
+# Prisma
+.prisma
+
+# Uploads / arquivos grandes
+uploads
+
+# OS
+.DS_Store
+Thumbs.db

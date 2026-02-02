@@ -15,13 +15,12 @@ dotenv.config();
 
 // Verificar se DATABASE_URL está configurada
 if (!process.env.DATABASE_URL) {
-  console.error('❌ Erro: DATABASE_URL não está configurada no arquivo .env');
-  console.error('📋 Adicione a linha: DATABASE_URL="postgresql://user:password@localhost:5432/desaparecidos"');
+  console.error('❌ DATABASE_URL não configurada (Render Environment Variables)');
   process.exit(1);
 }
 
 const app = express();
-const PORT = Number(process.env.PORT) || 4001;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const uploadsPath = process.env.FILE_STORAGE_PATH ?? path.resolve('uploads');
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((origin) => origin.trim()).filter(Boolean);
 

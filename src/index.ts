@@ -31,10 +31,20 @@ if (!fs.existsSync(uploadsPath)) {
 app.use(helmet());
 app.use(
   cors({
-    origin: allowedOrigins.length ? allowedOrigins : true,
+    origin: (origin, callback) => {
+      // permitir requests sem origin (Postman, mobile, server-to-server)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS bloqueado para origem: ${origin}`));
+    },
     credentials: true,
   }),
 );
+
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
